@@ -12,19 +12,21 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-      <ClerkProvider>
-    <html lang="en">
-      <body className={`${inter.className}`}>
-        <div className="bg-[url('/bg.jpg')] opacity-20 fixed -z-10 inset-0"/>
-        <Header/>
-        <main className="min-h-screen">{children}</main>
-        <footer className="bg-blue-300 py-12 bg-opacity-10">
-          <div className="mx-auto px-4 text-center text-gray-950 font-medium">
-            <p>Made By Chandan Rout</p>
-          </div>
-        </footer>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body
+          className={`${inter.className} bg-gradient-to-b from-cyan-50 via-amber-50 to-cyan-50`}
+        >
+          <div className="inset-0 bg-[url('/bg.jpg')] opacity-20 fixed -z-10 " />
+          <Header />
+          <main className="min-h-screen">{children}</main>
+          <footer className="bg-blue-300 py-12 bg-opacity-10">
+            <div className="container mx-auto px-4 text-center text-gray-900">
+              <p>Made By Chandan Rout</p>
+            </div>
+          </footer>
+        </body>
+      </html>
     </ClerkProvider>
   );
 }
