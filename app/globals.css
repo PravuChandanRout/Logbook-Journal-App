@@ -72,6 +72,13 @@ body {
   }
 }
 
+
+@layer utilities {
+  .gradient-title {
+    @apply font-extrabold bg-gradient-to-br from-cyan-500 via-cyan-300 to-cyan-400 bg-clip-text tracking-tighter text-transparent pr-2 pb-2;
+  }
+}
+
 .ql-toolbar {
   border-radius: 5px;
 }
@@ -89,13 +96,6 @@ body {
   flex: 1;
   overflow-y: auto;
   width: 100%;
-}
-
-
-@layer utilities {
-  .gradient-title {
-    @apply font-extrabold bg-gradient-to-br from-cyan-500 via-orange-300 to-cyan-400 bg-clip-text tracking-tighter text-transparent pr-2 pb-2;
-  }
 }
 
 html {
