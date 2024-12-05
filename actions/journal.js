@@ -1,6 +1,6 @@
 "use server";
 
-import { MOODS } from "@/app/lib/moods";
+import { getMoodById, MOODS } from "@/app/lib/moods";
 import { auth } from "@clerk/nextjs/server";
 import { getPixabayImage } from "./public";
 import { db } from "@/lib/prisma";
@@ -15,16 +15,16 @@ export async function writeJournal(data) {
 
     // rate limiting using arcjet
 
-    const req = await request()
+    const req = await request();
 
     const decision = await arc.protect(req, {
       userId,
       requested: 1,
-    })
+    });
 
-    if(decision.isDenied()) {
-      if(decision.reason.isRateLimit()){
-        const { remaining, reset} = decision.reason;
+    if (decision.isDenied()) {
+      if (decision.reason.isRateLimit()) {
+        const { remaining, reset } = decision.reason;
         console.error({
           code: "RATE_LIMIT_EXCEEDED",
           details: {
@@ -63,12 +63,74 @@ export async function writeJournal(data) {
     });
 
     await db.draft.deleteMany({
-        where: { userId: user.id },
-    })
+      where: { userId: user.id },
+    });
 
     revalidatePath("/dashboard");
     return entry;
   } catch (error) {
     throw new Error(error.message);
+  }
+}
+
+export async function getJournalEntries({
+  collectionId,
+  orderBy = "desc",
+} = {}) {
+  try {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    const user = await db.user.findUnique({
+      where: { clerkUserId: userId },
+    });
+
+    if (!user) throw new Error("User not found");
+
+    // Build where clause based on filters
+
+    const entries = await db.entry.findMany({
+      where: {
+        userId: user.id,
+        ...(collectionId === "unoganized"
+          ? { collectionId: null }
+          : collectionId
+          ? { collectionId }
+          : {}),
+      },
+      include: {
+        collection: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: orderBy,
+      },
+    });
+
+    // Add mood data to each entry
+
+    const entriesWithMoodData = entries.map((entry) => ({
+      ...entry,
+      moodData: getMoodById(entry.mood),
+    }));
+
+    return {
+      success: true,
+      data: {
+        entries: entriesWithMoodData,
+        // pagination: {
+        //   total: totalEntries,
+        //   pages: totalPages,
+        //   current: page,
+        //   hasMore: page < totalPages,
+        // },
+      },
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 }
