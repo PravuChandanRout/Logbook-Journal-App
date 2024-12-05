@@ -5,6 +5,8 @@ import { auth } from "@clerk/nextjs/server";
 import { getPixabayImage } from "./public";
 import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { request } from "@arcjet/next";
+import arc from "@/lib/arcjet";
 
 export async function writeJournal(data) {
   try {
@@ -12,6 +14,28 @@ export async function writeJournal(data) {
     if (!userId) throw new Error("Unauthorized");
 
     // rate limiting using arcjet
+
+    const req = await request()
+
+    const decision = await arc.protect(req, {
+      userId,
+      requested: 1,
+    })
+
+    if(decision.isDenied()) {
+      if(decision.reason.isRateLimit()){
+        const { remaining, reset} = decision.reason;
+        console.error({
+          code: "RATE_LIMIT_EXCEEDED",
+          details: {
+            remaining,
+            resetInSeconds: reset,
+          },
+        });
+        throw new Error("Too many requests. Please try again later.");
+      }
+      throw new Error("Request blocked");
+    }
 
     const user = await db.user.findUnique({
       where: { clerkUserId: userId },

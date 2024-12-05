@@ -16,16 +16,29 @@ import {
 } from "@/components/ui/select";
 import { getMoodById, MOODS } from "@/app/lib/moods";
 import { Button } from "@/components/ui/button";
+import useFetch from "@/hooks/use-fetch";
+import { writeJournal } from "@/actions/journal";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { toast } from "sonner";
 
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
 
 const JournalWritePage = () => {
   const {
+    loading: actionLoading,
+    func: actionFunc,
+    data: actionData,
+  } = useFetch(writeJournal);
+
+  const router = useRouter();
+
+  const {
     register,
     handleSubmit,
     control,
     formState: { errors },
-    getValues
+    getValues,
   } = useForm({
     resolver: zodResolver(journalSchema),
     defaultValues: {
@@ -36,12 +49,29 @@ const JournalWritePage = () => {
     },
   });
 
-  const isLoading = false;
+  const isLoading = actionLoading;
 
-  const onSubmit = handleSubmit( async (data) => {
-    console.log(data);
-    
-  })
+  useEffect(() => {
+    if (actionData && !actionLoading) {
+      router.push(
+        `/collection/${
+          actionData.collectionId ? actionData.collectionId : "unorganized"
+        }`
+      );
+
+      toast.success(`journal created successfully`)
+    }
+  }, [actionData, actionLoading]);
+
+  const onSubmit = handleSubmit(async (data) => {
+    const mood = getMoodById(data.mood);
+
+    actionFunc({
+      ...data,
+      moodScore: mood.score,
+      moodQuery: mood.pixabayQuery,
+    });
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -55,7 +85,7 @@ const JournalWritePage = () => {
         <div className="space-y-2">
           <label className="text-sm font-medium">Title</label>
           <Input
-          disabled={isLoading}
+            disabled={isLoading}
             {...register("title")}
             placeholder="Give your entry a title..."
             className={`py-5 md:text-md ${
@@ -103,26 +133,26 @@ const JournalWritePage = () => {
         <div className="space-y-2">
           <label className="text-sm font-medium">
             {getMoodById(getValues("mood"))?.prompt ?? "write your thoughts..."}
-            </label>
+          </label>
           <Controller
             name="content"
             control={control}
-            render={({field}) => (
-              <ReactQuill 
-              readOnly={isLoading}
-              theme="snow"
-              value={field.value}
-              onChange={field.onChange}
-              modules={{
-                toolbar: [
-                  [{ header: [1, 2, 3, false] }],
-                  ["bold", "italic", "underline", "strike"],
-                  [{ list: "ordered" }, { list: "bullet" }],
-                  ["blockquote", "code-block"],
-                  ["link"],
-                  ["clean"],
-                ],
-              }}
+            render={({ field }) => (
+              <ReactQuill
+                readOnly={isLoading}
+                theme="snow"
+                value={field.value}
+                onChange={field.onChange}
+                modules={{
+                  toolbar: [
+                    [{ header: [1, 2, 3, false] }],
+                    ["bold", "italic", "underline", "strike"],
+                    [{ list: "ordered" }, { list: "bullet" }],
+                    ["blockquote", "code-block"],
+                    ["link"],
+                    ["clean"],
+                  ],
+                }}
               />
             )}
           />
@@ -133,8 +163,8 @@ const JournalWritePage = () => {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">
-              Add to Collection (Optional)
-            </label>
+            Add to Collection (Optional)
+          </label>
           {/* <Controller
             name="content"
             control={control}
@@ -143,15 +173,17 @@ const JournalWritePage = () => {
             )}
           /> */}
           {errors.collectionId && (
-            <p className="text-red-500 text-sm">{errors.collectionId.message}</p>
+            <p className="text-red-500 text-sm">
+              {errors.collectionId.message}
+            </p>
           )}
         </div>
 
         <div className="space-y-4 flex">
-          <Button type="submit" variant="journal">Publish</Button>
-
+          <Button type="submit" variant="journal">
+            Publish
+          </Button>
         </div>
-
       </form>
     </div>
   );
