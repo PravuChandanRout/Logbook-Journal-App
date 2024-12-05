@@ -19,17 +19,35 @@ import { Button } from "@/components/ui/button";
 import useFetch from "@/hooks/use-fetch";
 import { writeJournal } from "@/actions/journal";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { createCollection, getCollections } from "@/actions/collection";
+import CollectionForm from "@/components/collection-dialog";
 
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
 
 const JournalWritePage = () => {
+  const [isCollectionDialogOpen, setIsCollectionDialogOpen] = useState(false);
+
+  // custom fetch hooks
+
   const {
     loading: actionLoading,
     func: actionFunc,
     data: actionData,
   } = useFetch(writeJournal);
+
+  const {
+    loading: collectionsLoading,
+    data: collections,
+    func: fetchCollections,
+  } = useFetch(getCollections);
+
+  const {
+    loading: createCollectionLoading,
+    func: createCollectionFn,
+    data: createdCollection,
+  } = useFetch(createCollection);
 
   const router = useRouter();
 
@@ -39,6 +57,7 @@ const JournalWritePage = () => {
     control,
     formState: { errors },
     getValues,
+    setValue,
   } = useForm({
     resolver: zodResolver(journalSchema),
     defaultValues: {
@@ -49,8 +68,11 @@ const JournalWritePage = () => {
     },
   });
 
-  const isLoading = actionLoading;
+  useEffect(() => {
+    fetchCollections();
+  }, []);
 
+  
   useEffect(() => {
     if (actionData && !actionLoading) {
       router.push(
@@ -58,20 +80,38 @@ const JournalWritePage = () => {
           actionData.collectionId ? actionData.collectionId : "unorganized"
         }`
       );
-
-      toast.success(`journal created successfully`)
+      
+      toast.success(`journal created successfully`);
     }
   }, [actionData, actionLoading]);
-
+  
   const onSubmit = handleSubmit(async (data) => {
     const mood = getMoodById(data.mood);
-
+    
     actionFunc({
       ...data,
       moodScore: mood.score,
       moodQuery: mood.pixabayQuery,
     });
   });
+
+// Handle collection creation success
+
+  useEffect(() => {
+    if(createdCollection) {
+      setIsCollectionDialogOpen(false);
+      fetchCollections();
+      setValue("collectionId", createdCollection.id);
+      toast.success(`Collection ${createdCollection.name} created!`);
+
+    }
+  },[createdCollection])
+  
+  const handleCreateCollection = async (data) => {
+    createCollectionFn(data)
+  }
+  
+  const isLoading = actionLoading || collectionsLoading
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -165,13 +205,42 @@ const JournalWritePage = () => {
           <label className="text-sm font-medium">
             Add to Collection (Optional)
           </label>
-          {/* <Controller
-            name="content"
+          <Controller
+            name="collectionId"
             control={control}
-            render={({field}) => (
-             
-            )}
-          /> */}
+            render={({ field }) => {
+              return (
+                <Select
+                  onValueChange={(value) => {
+                    if (value === "new") {
+                      setIsCollectionDialogOpen(true);
+                    } else {
+                      field.onChange(value);
+                    }
+                  }}
+                  value={field.value}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a collection..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {collections?.map((collection) => {
+                      return (
+                        <SelectItem key={collection.id} value={collection.id}>
+                          {collection.name}
+                        </SelectItem>
+                      );
+                    })}
+                    <SelectItem value="new">
+                      <span className="text-cyan-600">
+                        + Create New Collection
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              );
+            }}
+          />
           {errors.collectionId && (
             <p className="text-red-500 text-sm">
               {errors.collectionId.message}
@@ -180,11 +249,18 @@ const JournalWritePage = () => {
         </div>
 
         <div className="space-y-4 flex">
-          <Button type="submit" variant="journal">
+          <Button type="submit" variant="journal" disabled={actionLoading}>
             Publish
           </Button>
         </div>
       </form>
+
+      <CollectionForm
+        loading={createCollectionLoading}
+        onSuccess={handleCreateCollection}
+        open={isCollectionDialogOpen}
+        setOpen={setIsCollectionDialogOpen}
+      />
     </div>
   );
 };
